@@ -42,13 +42,13 @@ C5FLAGS="-DUSE_STRING_H -DUSE_STDLIB_H -DUSE_SIGNAL_H -DUSE_SYS_TYPES_H -DUSE_UN
 #
 
 # vanilla unix cc
-CC=cc
-CFLAGS="-g -O $C5FLAGS"
+#CC=cc
+#CFLAGS="-g -O $C5FLAGS"
 #LIBS=-lcrypt # uncomment only if necessary to use stdlib crypt(), eg: NetBSD MD5
 
 # gcc 2.7.2
-#CC=gcc
-#CFLAGS="-g -O2 -Wall $C5FLAGS"
+CC=gcc
+CFLAGS="-O3 -Wall $C5FLAGS"
 #LIBS=-lcrypt # uncomment only if necessary to use stdlib crypt(), eg: NetBSD MD5
 
 # digital unix v4.0, CFLAGS for ev4/ev5 chipsets (pick one)
@@ -98,8 +98,8 @@ export PATH
 
 usage="Usage: Crack [options] [bindir] [[-fmt format] files]..."
 
-version="5.0a"                          # version string
-deffmt=trad                             # for default trad2spf
+version="5.0a-a1"                       # version string
+deffmt="lanman"                         # for default trad2spf
 dodie=""                                # for verbose usage/die
 debug="false"                           # ...guess...
 node=`uname -n`                         # more portable then `hostname`

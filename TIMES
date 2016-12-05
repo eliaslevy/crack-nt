@@ -1,0 +1,46 @@
+		accounts: 500	accounts 1000	accounts: 619	accounts: 500
+		words: 500,000	words:1,000,000	words: 26,870	words: 500,000
+		HPUX 10.20	HPUX 10.20	Linux		Linux
+		9000/780	9000/780	Pentium 90	Pentium 90
+-----------------------------------------------------------------------------
+l0phtcrack 1.5					1:11:51
+(lanman)
+l0phtcrack 1.5					   6:04		1:21:57
+(nt)
+ntcrack 2.0	2:35		9:55 		     14		   3:27
+(lanman)
+crack 50a-a1	1:31		5:09		     25		   5:07
+(lm-raw,no-fltr)
+crack 50a-a1	  				     26		   5:19
+(lm-raw,filter)
+crack 50a-a1				 	     53		  11:57
+(lanman,no-fltr)
+crack 50a-a1					     56
+(lanman,filter)
+crack 50a-a1					     18		   4:08
+(nt)
+
+(crack and ntcrack where linked with the same libdes.a v4.01)
+
+
+As you can see under a architecture that supports 64-bit integers we have a 
+huge performance gain. We almost cut in half the best time by NTCrack 2.0.
+It seems filtering does not add much overhead but the are some downsides to
+using it. On a 32-bit architecture (Intel) our performance drops dramaticly
+as compiler generated code must convert of 64-bin integers back and forth
+to 32-bit. The performance is still acceptable compared to the best times
+by NTCrack 2.0.  Maybe I'll get around to making a 32-bit version of elcid.c.
+
+The horrible performance by L0phtcrack 1.5 is the result of the cracking
+algorithm. L0phtcrack reads in a dictionary word, encrypts it, and compares
+the result again the current account. It it does not match it goes to the
+next. It does this until it reaches the end of the dictionary. It then
+rewinds it and moves on to the next account. This is highly innefficient, it
+results on an algorithm of O(N*M) where N is the number of words in the
+dictionary and M is the number of passwords to crack. All other programs
+encrypt the guess once and then compare it to all (or some) passwords
+at the same time. This algorithm is of order O(N).
+
+
+--- Aleph One ---[ aleph1@underground.org
+

@@ -8,6 +8,9 @@
 # respect to its usage or its effect upon hardware or computer
 # systems, and maintains copyright as set out in the "LICENCE"
 # document which accompanies distributions of Crack v5.0 and upwards.
+#
+# Modified by Aleph One to display partial cracks of NT LanMan
+# passwords.
 ###
 
 tfile=run/T$$
@@ -39,8 +42,9 @@ else
 fi
 
 (
-    cat run/D* | egrep '^[DFG]:' > $tfile
+    cat run/D* | egrep '^[DFGP]:' > $tfile
     egrep '^[FG]:' $tfile
+    egrep '^P:' $tfile
     egrep '^D:' $tfile
     rm $tfile
 ) |
@@ -55,10 +59,25 @@ $1 == "G" {
     guesstime[$3] = $2
     next
 }
+$1 == "P" {
+    partial[$3] = $4
+    guesstime[$3] = $2
+    next
+}
 $1 == "D" {
+    FH = substr($3, 1, 16)
+    SH = substr($3, 17, 16)
+
     if (plaintext[$3] != "")
     {
 	printf "%d:Guessed %s [%s]  %s\n", guesstime[$3], $4, plaintext[$3], $5
+    } 
+    else if (partial[FH] != "")
+    {
+	printf "%d:Partial %s [%s*******] %s\n", guesstime[FH], $4, partial[FH], $5
+    } else if (partial[SH] != "")
+    {
+        printf "%d:Partial %s [*******%s] %s\n", guesstime[SH], $4, partial[SH], $5
     }
 }' |
 sort -t: -n |

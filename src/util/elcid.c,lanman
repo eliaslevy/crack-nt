@@ -9,15 +9,9 @@
 # document which accompanies distributions of Crack v5.0 and upwards.
 */
 
-/*
- * LANMAN filter hack and raw_lanman() support by Aleph One
- */
-
-#undef DEBUG
-
 #include "libcrack.h"
-#include "../libdes/des_locl.h"
 #include "../win_nt/crypt_nt.h"
+
 
 /* this file implements the LANMAN OWF for the (hopefully)
    platform-independent API for Crack version 5.0+ */
@@ -38,30 +32,24 @@
  *
  * This is a considerable gain if all the accounts you are cracking
  * are either shorter (inclusive) or longer than 7 characters, or
- * if you find partial guesses for all of them quickly.
+ * if you find partials guesses for all of them quickly.
  *
- * On the other hand if a single one of the passwords you are cracking
+ * On the other hand if a single one of the accounts you are cracking
  * does not meet this requirements you will still have to encrypt the
  * guess plus you will incur the overhead of the filtering.
- *
- * Also, if you filter based on length you will loose some of the benefits
- * of trying to crack partial passwords as even if the guess is longer
- * or shorter than the actual password half of it may still match and
- * you need to encrypt the guess to compare each half.
  *
  * YMMV
  */
 #undef LANMAN_FILTER
 
 struct CookieDough {
-    u_int64_t ct[2];
-    u_int64_t pt[2];
+    char cipher[CIPHERTEXTSIZE +1];
+    char first_half[PTHS + 1];
+    char second_half[PTHS + 1];
 };
 
 #define EBS             1024    /* BIG number - and why not ? */
 
-/* Magic number - null ciphertext */
-#define NULL_CT 	868578240321282570LL
 
 /* boot hook */
 
@@ -87,8 +75,6 @@ elcid_pwsize()
     return (PLAINTEXTSIZE);
 }
 
-/* reverse last two DES rotations, FP(), l2c, and c2h */
-
 int
 elcid_mkcookies(ciphertexts, usernames, cookies, m)
 char **ciphertexts;             /* vector of M ciphertexts */
@@ -100,33 +86,15 @@ int m;                          /* M */
 
     while (m--)
     {
-	register u_int32_t r, l;
-	register u_int64_t ll;
-
+	/* cipher + half + guess + null, yeah I know its a waste of memory */
         cookie = (struct CookieDough *) malloc(sizeof(struct CookieDough));
 
         if (cookie)
 	{
-            h2l(ciphertexts[m]    , l);
-	    h2l(ciphertexts[m] + 8, r);
-	    IP(l,r);
-	    l = ROTATE(l,29)&0xffffffffL;
-	    r = ROTATE(r,29)&0xffffffffL;
-	    ll2ll(l,r,ll);
-	    cookie->ct[0] = ll;
-  	    l=r=ll=0;
-
-	    h2l(ciphertexts[m] + 16, l);
-	    h2l(ciphertexts[m] + 24, r);
-	    IP(l,r);
-	    l = ROTATE(l,29)&0xffffffffL;
-	    r = ROTATE(r,29)&0xffffffffL;
-	    ll2ll(l,r,ll);
-	    cookie->ct[1] = ll;
-	    l=r=ll=0;
-
-	    cookie->pt[0] = 0;
-	    cookie->pt[1] = 0;
+	    memset(cookie->cipher, 0, CIPHERTEXTSIZE + 1);
+	    strncpy(cookie->cipher, ciphertexts[m], CIPHERTEXTSIZE);
+	    memset(cookie->first_half, 0, PTHS + 1);
+	    memset(cookie->second_half, 0, PTHS + 1);
 	}
 
 	cookies[m] = cookie;
@@ -168,20 +136,6 @@ char *ciphertext;
     return (retval);
 }
 
-void des_finish(u_int64_t ll, u_char *c) {
-	u_int32_t l,r;
-
-        ll_from_ll(ll,l,r);
-
-        l=ROTATE(l,3)&0xffffffffL;
-        r=ROTATE(r,3)&0xffffffffL;
-
-        FP(r,l);
-
-	l2h(l,c);
-	l2h(r,c+8);
-}
-
 /* 
  * The use of the Logger() function in this function breaks the modularity of
  * the ELCID API, but this is the only way for us to inform the user we
@@ -189,16 +143,16 @@ void des_finish(u_int64_t ll, u_char *c) {
  */
 int
 elcid_test(guesses, cookies, results, cookiecount)
-u_char **guesses;                 /* vector of N guesses */
+char **guesses;                 /* vector of N guesses */
 void **cookies;                 /* vector of M cookies */
-u_char **results;                 /* vector of M results (guessed passwords) */
+char **results;                 /* vector of M results (guessed passwords) */
 int cookiecount;                /* M */
 {
-    register int i, j;
+    int i;
+    int guesslen;
+    int seven_or_less;
     int retval;
     int encryptit;
-    u_int64_t ll2[2], g[2];
-    u_char tmpstr[17], *c;
     struct CookieDough *cookie;
 
     /* clear the log */
@@ -209,20 +163,10 @@ int cookiecount;                /* M */
     /* for each element in the "guesses" array */
     for (i = 0; (i < EBS) && guesses[i]; i++)
     {
-	/*
-	 * Convert the guess to two 64 bit integers.
-	 * This will speed up the test for partial gueses.
-	 * But is it worth it?
-	 */
-	memset(tmpstr,0,16);
-	memcpy(tmpstr,guesses[i],14);
-	c = tmpstr;
-
-	p2ll(c,g[0]);
-	p2ll(c,g[1]);
+	int j;
+	char *cipher;
 
 #ifdef LANMAN_FILTER
-
 	/* try to filter it */
 	encryptit = 0;
 	for (j = 0; j < cookiecount; j++)
@@ -231,17 +175,23 @@ int cookiecount;                /* M */
 	    if ((!cookies[j]) || results[j])
 		continue;
 
-	    cookie = (struct CookieDough *) cookies[j];
+            cookie = (struct CookieDough *) cookies[j];
 
 	    /* skip, if the guess is longer than 7 characters */
 	    /* and the password isnt, and viceversa */
-	    if (((g[1] == 0) && (cookie->ct[1] != NULL_CT)) ||
-		((g[1] != 0) && (cookie->ct[1] == NULL_CT)))
+            guesslen = strlen(guesses[i]);
+	    seven_or_less = !strncmp(cookie->cipher+CTHS, "AAD3B435B51404EE", CTHS);
+	    if ( ((guesslen > PTHS) && seven_or_less) ||
+		    ((guesslen <= PTHS) && !seven_or_less))
 		continue;
+	    cookie = (struct CookieDough *) cookies[j];
 
 	    /* skip, if the are partials and they dont match */
-	    if ((cookie->pt[0] && (g[0] != cookie->pt[0])) ||
-	        (cookie->pt[1] && (g[1] != cookie->pt[1])))
+	    if ( (cookie->first_half[0] != 0) &&
+		    (strncmp(cookie->first_half, guesses[i], PTHS)) )
+		continue;
+	    if ( (cookie->second_half[0] != 0) &&
+		    (strncmp(cookie->second_half, guesses[i], PTHS)) )
 		continue;
 
 	    encryptit = 1;
@@ -257,74 +207,92 @@ int cookiecount;                /* M */
 #endif /* LANMAN_FILTER */
 
 	/* encrypt it */
-	raw_lanman(guesses[i], ll2);
+	cipher = (char *) crypt_lanman(guesses[i], NULL);
 
 	/* and see if the encryption matches any of the cookies */
 	for (j = 0; j < cookiecount; j++)
 	{
 	    /* skip, if there's no cookie, or it's been guessed */
 	    if ((!cookies[j]) || results[j])
+	    {
 		continue;
+	    }
 
 	    cookie = (struct CookieDough *) cookies[j];
 
 	    /* compare, and clone the guessed word if correct */
-            if ((ll2[0] == cookie->ct[0]) && (ll2[1] == cookie->ct[1]))
+	    if (!strncmp(cipher, (char *) cookie->cipher, CIPHERTEXTSIZE))
 	    {
-		results[j] = (u_char *) Clone(guesses[i]);
+		results[j] = (char *) Clone(guesses[i]);
 		retval++;
 	    }
 	    else
 	    {
 		/* compare, the two halfs for a partial match */
-		if (!cookie->pt[0] && (ll2[0] == cookie->ct[0]))
+		if (!strncmp(cipher, (char *) cookie->cipher, CTHS))
 		{
-		    cookie->pt[0] = g[0];
-		    c = tmpstr;
-		    des_finish(cookie->ct[0], c);
-		    Logger('P', "%.16s:%.7s\n", tmpstr, guesses[i]);
+		    if (cookie->first_half[0] != 0)
+                      continue;
+
+                    strncpy(cookie->first_half, guesses[i], PTHS);
+
+		    Logger('P', "%.16s:=%.7s\n", cipher, guesses[i]);
+
 		}
 		
-		if (!cookie->pt[1] && (ll2[0] == cookie->ct[1]))
+		if (!strncmp(cipher, (char *) cookie->cipher+CTHS, CTHS))
 		{
-		    cookie->pt[1] = g[0];
-		    c = tmpstr;
-		    des_finish(cookie->ct[1], c);
-		    Logger('P', "%.16s:%.7s\n", tmpstr, guesses[i]);
+		    if (cookie->second_half[0] != 0)
+			continue;
+
+		    strncpy(cookie->second_half, guesses[i], PTHS);
+
+		    Logger('P', "%.16s:=%.7s\n", cipher, guesses[i]);
 		}
 
-		if (g[1])
+		if (strlen(guesses[i]) > PTHS)
 		{
-		    if (!cookie->pt[0] && (ll2[1] == cookie->ct[0]))
+		    if (!strncmp(cipher+CTHS, (char *) cookie->cipher, CTHS))
 		    {
-			cookie->pt[0] = g[1];
-			c = tmpstr;
-			des_finish(cookie->ct[0], c);
-			Logger('P',"%.16s:%.7s\n",tmpstr,guesses[i]+PTHS);
+			if (cookie->first_half[0] != 0)
+			   continue;
+
+			strncpy(cookie->first_half, guesses[i]+PTHS, PTHS);
+
+			Logger('P', "%.16s:%.7s\n",
+				cipher+16, guesses[i]+PTHS);
 		    }
 
-		    if (!cookie->pt[1] && (ll2[1] == cookie->ct[1]))
+		    if (!strncmp(cipher+CTHS, (char *) cookie->cipher+CTHS, CTHS))
 		    {
-			cookie->pt[1] = g[1];
-			c = tmpstr;
-			des_finish(cookie->ct[1], c);
-			Logger('P',"%.16s:%.7s\n",tmpstr, guesses[i]+PTHS);
+			if (cookie->second_half[0]  != 0)
+			    continue;
+
+			strncpy(cookie->second_half, guesses[i]+PTHS, PTHS);
+
+			Logger('P', "%.16s:%.7s\n",
+				cipher+16, guesses[i]+7);
 		    }
 		}
 
-		if ( cookie->pt[0] &&
-		    (cookie->pt[1] || (cookie->ct[1] == NULL_CT)))
+		if ((cookie->first_half[0] != 0) && (cookie->second_half[0] != 0))
 		{
-		    c = tmpstr;
-		    ll2p(cookie->pt[0],c);
-		    ll2p(cookie->pt[1],c);
-		    tmpstr[14] = 0;
-		    results[j] = Clone(tmpstr);
-		    retval++;
+		    results[j] = (char *) malloc(PLAINTEXTSIZE + 1);
+
+		    if (results[j])
+		    {
+			memset(results[j], 0, PLAINTEXTSIZE + 1);
+			strncpy(results[j], cookie->first_half, PTHS);
+			strncpy(results[j] + PTHS, cookie->second_half, PTHS);
+
+		    	retval++;
 #ifdef DEBUG
-		    Logger('X', "Found the password: \"%.14s\" \"%.14s\"\n", results[j], tmpstr);
-#endif 
+		    	Logger('D', "Found the password: %s%s\n",
+				cookie->first_half, cookie->second_half);
+#endif /* DEBUG */
+		    }
 		}
+
 	    }
 	}
     }

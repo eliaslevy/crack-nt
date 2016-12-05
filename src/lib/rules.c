@@ -10,6 +10,7 @@
  */
 
 #include "libcrack.h"
+#include "../util/elcid.h"
 
 #define RULE_NOOP	':'
 #define RULE_NOOP2	' '

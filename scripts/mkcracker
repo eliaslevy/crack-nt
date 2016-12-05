@@ -17,7 +17,12 @@ prefix=$1
 
 shift
 
-if [ -d ../libdes ] # libdes from eay
+if [ -d ../win_nt ]
+then
+    ( cd ../win_nt ; make ) || exit 1
+    exec make "$@" $prefix/nt-cracker
+
+elif [ -d ../libdes ] # libdes from eay
 then
 
     ( cd ../libdes ; make ) || exit 1

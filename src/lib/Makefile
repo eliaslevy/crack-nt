@@ -13,8 +13,8 @@ XLIB=	$(XDIR)/libc5.a
 CFLAGS= $(XCFLAGS)
 CC=	$(XCC)
 
-SRC=	dawglib.c debug.c rules.c stringlib.c
-OBJ=	dawglib.o debug.o rules.o stringlib.o
+SRC=	dawglib.c debug.c logger.c rules.c stringlib.c
+OBJ=	dawglib.o debug.o logger.o rules.o stringlib.o
 
 $(XLIB): $(SRC) ../lib/libcrack.h
 	( make "XDIR=$(XDIR)" "XCFLAGS=$(XCFLAGS)" $(OBJ) || exit 1 )	

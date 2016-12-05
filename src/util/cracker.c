@@ -98,25 +98,6 @@ static struct PasswordStore *psr_guessed;
 /* ------------------------------------------------------------------ */
 
 void
-Logger(key, fmt, a, b, c, d, e, f)
-char key;
-char *fmt;
-char *a, *b, *c, *d, *e, *f;
-{
-    long t;
-
-    time(&t);
-
-    fprintf(stdout, "%c:%ld:", key, t);
-    fprintf(stdout, fmt, a, b, c, d, e, f);
-
-    fflush(stdout);
-    fflush(stderr);		/* and why not ? */
-}
-
-/* ------------------------------------------------------------------ */
-
-void
 CatchSig(i)
 int i;
 {
@@ -933,11 +914,14 @@ Cracker()
 	       in the world, if you have the (modest) resources
 	       necessary to run it */
 	{
+	    int done;
 	    struct DictBlock *dictroot;
 
 	    dictroot = LoadDictionary(fp);
 
 	    pclose(fp);
+
+	    done = 1;
 
 	    /* iterate over the users */
 	    for (cg = cgr_crackem; cg; cg = cg->cg_next)
@@ -947,6 +931,8 @@ Cracker()
 		/* crack */
 		if (cg->cg_unguessed)
 		{
+		    done = 0;
+
 		    /* setup for this pass */
 		    elcid_setup(cg->cg_ciphers);
 
@@ -959,6 +945,9 @@ Cracker()
 			}
 		    }
 		}
+
+		if (done)
+		   return;
 
 		Pauser();
 	    }
@@ -1086,6 +1075,7 @@ char *argv[];
     signal(SIGINT, CatchSig);
     signal(SIGQUIT, CatchSig);
     signal(SIGTERM, CatchSig);
+    signal(SIGSEGV, CatchSig);
 
     /* load the input - may reset from_rule */
     LoadInput(stdin);

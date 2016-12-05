@@ -24,7 +24,7 @@ rm -f $gecosd* $gcpermd*
 # generate source file
 cat $* |
 awk -F: '{print $NF}' |
-tr -cd ' \011\012[0-9][A-Z][a-z]' > $tmp
+tr -cd '\- \011\012[0-9][A-Z][a-z]' > $tmp
 
 
 # basic non-permuted words

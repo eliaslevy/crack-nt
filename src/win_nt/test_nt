@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# test_nt -- (c) 1997, Bob Tinsley <R.Tinsley@rhbnc.ac.uk>
+
+DAT="./test_nt.dat"
+BIN="./hash_nt"
+
+if [ ! -x "$BIN" ]
+then
+  cd "`dirname $BIN`" &&
+  make "`basename $BIN`" ||
+  ( echo "$progname : unable to build $BIN" >&2 && exit 1 )
+fi
+
+if [ -e "$DAT" ]
+then
+  if [ ! -r "$DAT" -o ! -f "$DAT" ]
+  then
+    echo "$0 : $DAT already exists (and is not a readable file)" >&2
+    exit 1
+  fi
+else
+  cat <<EOF >"$DAT"
+# None of this works -- they're the MD4 test vectors from RFC 1320...
+
+	31D6CFE0D16AE931B73C59D7E0C089C0
+a	bde52cb31de33e46245e05fbdbd6fb24
+abc	a448017aaf21d8525fc10ae87aa6729d
+message digest	d9130a8164549fe818874806e1c7014b
+abcdefghijklmnopqrstuvwxyz	d79e1c308aa5bbcdeea8ed63df412da9
+ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789	043f8582f241db351ce627e153e7f0e4
+12345678901234567890123456789012345678901234567890123456789012345678901234567890	e33b4ddc9c38f2199c3e7b164fcc0536
+EOF
+
+fi
+
+IFS="	"	# tab
+cat "$DAT" | grep '^[^#]' | while read line
+do
+  set $line
+  if [ $# -lt 1 -o $# -gt 2 ]
+  then
+    echo "$0 : parse error : $line"
+  else
+    if [ $# -eq 1 ]
+    then
+      text=
+      hope="$1"
+    else
+      text="$1"
+      hope="$2"
+    fi
+    hash=`"$BIN" "$text"`
+    if [ "$hash" != "$hope" ]
+    then
+      echo "$0 : \"$text\""
+      echo "$0 : hope=$hope"
+      echo "$0 : hash=$hash"
+    fi
+  fi
+done
+
+rm -f "$DAT"
+
+# bug : always returns successfully
+exit 0

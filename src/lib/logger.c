@@ -1,4 +1,4 @@
-###
+/*
 # This program was written by and is copyright Alec Muffett 1991,
 # 1992, 1993, 1994, 1995, and 1996, and is provided as part of the
 # Crack v5.0 Password Cracking package.
@@ -7,18 +7,24 @@
 # respect to its usage or its effect upon hardware or computer
 # systems, and maintains copyright as set out in the "LICENCE"
 # document which accompanies distributions of Crack v5.0 and upwards.
-###
-# List what source files will be used to create <which> dictionaries:
-#
-#       <dictionary tag>:<fileglob> <fileglob> ...
-#
-# Dict '1' is created from /usr/dict/words (etc) and $CRACK_HOME/dict/1/*
-# Dict '2' is created from $CRACK_HOME/dict/2/*
-# Dict '3' is created from $CRACK_HOME/dict/3/*
+*/
 
-0:dict/1/* dict/2/* dict/3/*
-#1:/usr/dict/*words* dict/1/*
-#2:dict/2/*
-#3:dict/3/*
+#include "libcrack.h"
 
-# and so forth...
+void
+Logger(key, fmt, a, b, c, d, e, f)
+char key;
+char *fmt;
+char *a, *b, *c, *d, *e, *f;
+{
+    time_t t;
+
+    time(&t);
+
+    fprintf(stdout, "%c:%ld:", key, (long)t);
+    fprintf(stdout, fmt, a, b, c, d, e, f);
+
+    fflush(stdout);
+    fflush(stderr);             /* and why not ? */
+}
+

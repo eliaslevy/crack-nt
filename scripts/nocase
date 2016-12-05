@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# nocase -- (c) 1997, Bob Tinsley <R.Tinsley@rhbnc.ac.uk>
+#
+# Just a wrapper around extras_nt/nocase
+
+progname=nocase
+
+if [ $# -gt 1 ]
+then
+  echo "usage: $progname [CRACK_HOME]" >&2
+  exit 1
+fi
+
+# To find the rules, we must know the root of the Crack tree (CRACK_HOME)...
+
+# If it isn't in the environment, choose a default :
+if [ -z "$CRACK_HOME" ]
+then
+  CRACK_HOME=/tmp/c50a
+fi
+
+# If there is an argument, this over-rides the default :
+if [ $# != 0 ]
+then
+  CRACK_HOME="$1"
+fi
+
+# Some sanity checks on CRACK_HOME :
+#if [ -z "$CRACK_HOME" -o ! -f "$CRACK_HOME/Crack" -o ! -f "$CRACK_HOME/Reporter" ]
+#then
+#  echo "usage : $progname [CRACK_HOME]" >&2
+#  exit 1
+#fi
+
+# Build the binary that we're wrapping :
+BIN="$CRACK_HOME/extra_nt/nocase"
+if [ ! -x "$BIN" ]
+then
+  cd "`dirname $BIN`" &&
+  make "`basename $BIN`" ||
+  ( echo "$progname : unable to build $BIN" >&2 && exit 1 )
+fi
+
+# Find the rules :
+set $CRACK_HOME/conf/rules.*
+if [ -z "$1" -o "$1" = "$CRACK_HOME/conf/rules.*" ]
+then
+  echo "$progname : no rules found as $CRACK_HOME/conf/rules.*" >&2
+  exit 1
+fi
+
+# DO IT!
+
+while [ $# -gt 0 ]
+do
+  echo "$1"
+  "$BIN" <$1 | grep '^[^#]' | sort | uniq >$1.no-case &&
+	mv $1.no-case $1
+  shift
+done

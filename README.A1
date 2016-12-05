@@ -1,0 +1,204 @@
+
+------[ Crack 5.0a-a1
+
+This is a version of Crack 5.0a modified to crack Microsoft Windows NT
+passwords. It can crack both the MD4 based NT hashes, or the DES based
+LANMAN hashes. It is particularly optimized to crack the later by:
+
+----> Filtering guesses before running them through the hash routine
+----> Cracking each half of the password independently
+----> Pre-processing the hashes into two 64-bit integers and reversing
+----| the last permutation, and last two rotations of DES.
+
+
+
+------[ License and Credits
+
+This packages is (clearly) derived from work by
+
+----> Alec Muffet		<alecm@crypto.dircon.co.uk>	[ Crack 5.0 ]
+----> Jonathan Wilkins		<jwilkins@secnet.com>		[ NTcrack 2.0 ]
+----> Jesse Burns		<burnsj@cuug.ab.ca>		[ NTcrack 2.0 ]
+----> Bob Tinsley		<R.Tinsley@rhbnc.ac.uk>		[ c50a-nt-0.20 ]
+
+includes code by
+
+----> Andrew Tridgell		<Andrew.Tridgell@anu.edu.au>	[ Samba ]
+----> Ron Rivest		<rivest@theory.lcs.mit.edu>	[ MD4 ]
+
+and is dependent on code by
+
+----> Eric Young		<eay@mincom.oz.au>		[ libDES ]
+----> Jeremy Allison		<jra@cygnus.com>		[ pwdump ]
+
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. Crack 5.0
+   is distributed under the Artistic License. See the LICENSE file.
+   Parts of this software are under the GNU General Public License.
+   See the same for more details.
+
+
+
+------[ Quick Start
+
+----> configure Crack 5.0a as per manual.txt (or manual.html)
+----> edit 'src/win_nt/util.h' and configure the types as needed - FIXME
+----> get pwdump and use it to spit out an NT password file
+----| (or look for the archive in extras_nt/)
+----> `./Crack nt-password-files...`
+
+If you're having trouble configuring libdes, try (in the libdes directory)
+`rm GNUmakefile ; cp Makefile.uni Makefile` and work from 'Makefile'.
+
+If you're having trouble building the binaries because of missing object (.o)
+or archive (.a) files, try (in Crack's top-level directory) `rm -f -r run/bin`
+and go again.
+
+
+
+------[ Slow Start
+
+----> configure Crack 5.0a as per manual.txt (or manual.html)
+----> make and run 'src/libdes/des_opts' and add the deines to
+----| 'src/libdes/Makefile.*' and 'src/win_nt/Makefile'
+----> select the algorithm you want to use:
+----| for the optimized LANMAN DES cracker use 'src/util/elcid.c,lanman-raw'
+----| for the standard LANMAN DES cracker user 'src/util/elcid.c,lanman'
+----| for the NT MD4 cracker use 'src/util/elcid.c,nt'
+----> copy your selection to 'src/util/elcid.c'
+----> if you are using the LANMAN crackers edit and you want to turn on
+----| filtering edit 'src/util/elcid.c' and define FILTER_LANMAN
+----> edit 'src/win_nt/util.h' and configure the types as needed - FIXME
+----> run `make spotless`
+----> run `./Crack -makeonly`
+----> if you are using the LANMAN crackers run `./Crack nt-password-file...`,
+----| else run `./Crack -fmt nt nt-password-files...`
+
+(FIXME: Make the steps simpler)
+
+
+By default the distribution users the optimized LANMAN cracker.
+
+Note that because the LanManager password is forced to upper case :
+
+----> the ruleset can be reduced by running scripts/nocase;
+----| (FIX-ME : as a side-effect, this rearranges the rules within a file.)
+----> you will have to do the case-conversion on the output.
+
+You can do case conversion by using the src/win_nt/lanman2nt program like:
+
+  lanman2nt <lanman password> <nt hash>
+
+
+
+------[ Optimizations
+
+This version of Crack is been highly optimized to crack LanManager style
+passwords. This what we do:
+
+----> Using 64-bit integer arithmetic instead of string manipulation.
+
+All strings cyphertext and plaintext strings are converted into a pair of
+64-bit integers. We then use the more efficient integer arithmetic (such
+as '==') instead of string functions (such as 'strncmp(3)').
+
+----> Reverse the last DES permutation and last two rotations.
+
+We reverse the last DES permutation (FP) and last two rotations such as
+we dont need to perform this operations on every call to the hash function.
+Type `make speed_nt` in 'src/util/win_nt' and run `speed_nt` to see the
+performance gain by this first two optimizations.
+
+----> Shortcut the hashing of a string shorter than eight characters.
+
+We modified the hash function such that if the common case of hashing
+a string shorter than eight characters occurs we return the precomputed
+hash of the null string for the second half instead of computing it again.
+
+----> Crack each half independently.
+
+We crack each half of the password independently of the other. This allows
+us to find certain password for which we would otherwise not generate a
+successful guess.
+
+----> Filter guesses based on lenght or an already guessed half.
+
+We can filter out guesses before passing them to the hash function if:
+
+<+> We know the crypted password is longer than 7 characters and the guess
+    isn't, and viceversa
+<+> We have guessed half of the password and the guess does not match.
+
+This is a considerable gain if all the accounts you are cracking are either
+shorter (inclusive) or longer than 7 characters, or if you find partial
+guesses for all of them quickly.
+
+On the other hand if a single one of the passwords you are cracking does not
+meet this requirements you will still have to hash the guess plus you will
+incur the overhead of the filtering.
+
+Also, if you filter based on length you will loose some of the benefits of
+trying to crack partial passwords as even if the guess is longer or shorter
+than the actual password, or half of it doesnt match, the other half may
+still match and you will loose the chance of finding this out. YMMV.
+
+Filtering is turned OFF by default. To turn it on edit src/util/elcid.c
+and define LANMAN_FILTER.
+
+
+
+------[ Supporting Packages
+
+Crack 5.0a is available from Alec Muffett's home-page 
+----> http://www.users.dircon.co.uk/~crypto/c50a.tgz
+
+The latest version of libDES is available from Eric Young's ftp-site
+----> ftp://ftp.psy.uq.oz.au/pub/Crypto/DES/
+
+pwdump is available from
+----> ftp://samba.anu.edu.au/pub/samba/pwdump/
+
+The md4 code and test vectors were taken RFC 1320.
+
+
+
+------[ Other Tools
+
+NTCrack 2.0 by Secure Networks Inc.
+----> http://www.secnet.com/freesoft/ntcrack.html
+
+L0phtcrack 1.5 by L0pht Heavy Industries
+----> http://www.l0pht.com/advisories/l0phtcrack15.txt
+
+
+
+------[ Misc
+
+For information on the NT password formats check out:
+----> User Authentication with Windows NT
+----| http://premium.microsoft.com/support/kb/articles/q102/7/16.asp
+
+For information on how to grab NT password files from unsuspecting web users:
+----> http://www.efsl.com/security/ntie/
+
+For more word-lists, go to
+----> ftp://ftp.ox.ac.uk/pub/wordlists/
+(although many of them are in the standard Crack 5.0a distribution.)
+
+Finally, you might like to `make test` in the 'src/win_nt/' directory,
+(FIX-ME  : some of the software there is incomplete).
+
+
+
+------[ ToDo
+
+----> save partial cracks in the feedback file and use them.
+----> crack more than one password format at the same time.
+----> make a 32-bit version
+----> create a raw_crypt version (for unix)
+
+
+--- Aleph One ---[ aleph1@underground.org
+

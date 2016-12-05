@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# ntpass2spf -- (c) 1997, Bob Tinsley <R.Tinsley@rhbnc.ac.uk>
+#
+# Take the output from pwdump and convert to Crack's internal format,
+# using the NT password...
+#
+# Input is of the form (quoting from the pwdump README file)
+#
+#	<user>:<id>:<lanman pw>:<NT pw>:comment:homedir:
+#
+# Where <user> is the user-name on Windows NT, <id> is the Windows NT
+# RID (relative ID) - the last 32 bit component of the Windows NT users
+# SID, <lanman pw> is the users lanman password hash, <NT pw> is the
+# users Windows NT (md4) password hash - note that if the user has no
+# password these will be dumped as the string 'NO PASSWORD*****', if the
+# account is disabled or invalid these are dumped as 32 '*' characters.
+# The comment is a concatenation of the users full name on Windows NT and
+# the description field in the Windows NT user-manager program.
+
+progname="ntpass2spf"
+
+if [ $# -eq 0 ]
+then
+  echo "usage: $progname password-file..."
+  exit 1
+fi
+
+while [ $# -gt 0 ]
+do
+  if [ -f "$1" ]
+  then
+    awk -F: '
+	NF == 7 && $4 ~ /^NO PASSWORD/ {
+	printf("D:00::%s:%s [%s WinNT-ntpass]:%s %s\n",
+		$1, $5, "'"$1"'", $1, $5)
+	next
+	}
+
+	NF == 7 && $4 ~ /[^0-9A-F]/ {
+	print "E:0:ignoring locked/illegal entry: " $0
+	next
+	}
+
+	NF == 7 {
+	printf("D:00:%s:%s:%s [%s WinNT-ntpass]:%s %s\n",
+		$4, $1, $5, "'"$1"'", $1, $5)
+	next
+	}
+
+        { print "E:0:bad format: '"$1"': " $0 }' < "$1"
+  else
+    echo "$progname: $1: no such file" 1>&2
+  fi
+  shift
+done
+
+exit 0

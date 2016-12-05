@@ -19,6 +19,8 @@ EXE=    $(XDIR)/dawg \
 	$(XDIR)/kickdict \
 	$(XDIR)/cracker
 
+NTLIB =../win_nt/libcrypt_nt.a ../libdes/libdes.a
+
 #------------------------------------------------------------------
 
 all:    $(EXE)
@@ -42,6 +44,11 @@ $(XDIR)/cracker:        cracker.c $(XLIB)
 $(XDIR)/stdlib-cracker: cracker.c $(XLIB)
 	$(CC) $(CFLAGS) -c elcid.c
 	$(CC) $(CFLAGS) -o $(XDIR)/cracker cracker.c elcid.o $(XLIB)
+	date > $@
+
+$(XDIR)/nt-cracker: cracker.c $(XLIB)
+	$(CC) $(CFLAGS) -c elcid.c
+	$(CC) $(CFLAGS) -o $(XDIR)/cracker cracker.c elcid.o $(XLIB) $(NTLIB)
 	date > $@
 
 $(XDIR)/libdes-cracker: cracker.c $(XLIB)
@@ -70,7 +77,7 @@ $(XDIR)/dawg: dawg.c $(XLIB)
 
 # don't you just love dependency graphs?
 $(XDIR)/dictfilt: dictfilt.c $(XLIB) $(XDIR)/cracker
-	$(CC) $(CFLAGS) -o $(XDIR)/dictfilt dictfilt.c elcid.o $(XLIB)
+	$(CC) $(CFLAGS) -o $(XDIR)/dictfilt dictfilt.c elcid.o $(XLIB) $(NTLIB)
 
 #------------------------------------------------------------------
 

@@ -84,6 +84,7 @@ extern int Debug();
 extern int PackDAWG();
 extern int ResetDAWG();
 extern int UnPackDAWG();
+extern void Logger();
 
 /* ------------------------------------------------------------------ */
 
